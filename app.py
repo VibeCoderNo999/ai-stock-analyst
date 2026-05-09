@@ -140,8 +140,7 @@ def call_gemini(prompt: str, data_context: str) -> str:
     if not GEMINI_API_KEY:
         return "⚠️ Gemini API key not configured. Add GEMINI_API_KEY to your Streamlit secrets."
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-
+   
     system_prompt = """You are a senior equity research analyst with CFA credentials and 15+ years of experience at a top-tier investment bank. You produce institutional-quality research reports.
 
 ANALYSIS FRAMEWORK — follow all of these rigorously:
@@ -225,15 +224,41 @@ FORMATTING RULES:
         },
     }
 
-    try:
-        resp = requests.post(url, json=payload, timeout=60)
-        resp.raise_for_status()
-        result = resp.json()
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    except requests.exceptions.Timeout:
-        return "⚠️ Request timed out. Please try again."
-    except Exception as e:
-        return f"⚠️ API Error: {str(e)}"
+import time
+
+    models = ["gemini-2.0-flash", "gemini-1.5-flash"]
+
+    for model in models:
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+
+        for attempt in range(3):
+            try:
+                resp = requests.post(api_url, json=payload, timeout=90)
+
+                if resp.status_code == 429:
+                    wait = (attempt + 1) * 10
+                    time.sleep(wait)
+                    continue
+
+                resp.raise_for_status()
+                result = resp.json()
+                return result["candidates"][0]["content"]["parts"][0]["text"]
+
+            except requests.exceptions.Timeout:
+                if attempt < 2:
+                    time.sleep(5)
+                    continue
+                break
+            except Exception as e:
+                error_msg = str(e)
+                if GEMINI_API_KEY:
+                    error_msg = error_msg.replace(GEMINI_API_KEY, "***")
+                if attempt < 2:
+                    time.sleep(3)
+                    continue
+                break
+
+    return "⚠️ Analysis temporarily unavailable. Please wait a minute and try again."
 
 
 # ─── Technical Indicators ───
