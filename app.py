@@ -140,7 +140,6 @@ def call_gemini(prompt: str, data_context: str) -> str:
     if not GEMINI_API_KEY:
         return "⚠️ Gemini API key not configured. Add GEMINI_API_KEY to your Streamlit secrets."
 
-   
     system_prompt = """You are a senior equity research analyst with CFA credentials and 15+ years of experience at a top-tier investment bank. You produce institutional-quality research reports.
 
 ANALYSIS FRAMEWORK — follow all of these rigorously:
@@ -224,7 +223,7 @@ FORMATTING RULES:
         },
     }
 
-import time
+    import time
 
     models = ["gemini-2.0-flash", "gemini-1.5-flash"]
 
@@ -248,9 +247,11 @@ import time
                 if attempt < 2:
                     time.sleep(5)
                     continue
+                # Try next model
                 break
             except Exception as e:
                 error_msg = str(e)
+                # Never expose the API key in error messages
                 if GEMINI_API_KEY:
                     error_msg = error_msg.replace(GEMINI_API_KEY, "***")
                 if attempt < 2:
