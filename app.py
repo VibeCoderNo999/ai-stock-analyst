@@ -677,10 +677,7 @@ if st.session_state.done:
             render_risks(structured.get("risks", []))
 
     # ── Full Report ──
-    st.markdown('<div class="section-label">Full Report</div>', unsafe_allow_html=True)
-    st.markdown('<div class="report-container">', unsafe_allow_html=True)
-    st.markdown(report_text)
-    st.markdown('</div>', unsafe_allow_html=True)
+st.markdown(report_text)
 
     # ── News ──
     if data["news"]:
