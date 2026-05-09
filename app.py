@@ -133,30 +133,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ─── Gemini API ───
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-# ─── Debug: Test API Key ───
-with st.expander("🔧 Test API Connection"):
-    if st.button("Test Gemini API"):
-        if not GEMINI_API_KEY:
-            st.error("No API key found in secrets!")
-        else:
-            st.write(f"Key starts with: {GEMINI_API_KEY[:10]}...")
-            test_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-            test_payload = {
-                "contents": [{"role": "user", "parts": [{"text": "Say hello in one word."}]}],
-                "generationConfig": {"maxOutputTokens": 10},
-            }
-            try:
-                r = requests.post(test_url, json=test_payload, timeout=15)
-                st.write(f"Status code: {r.status_code}")
-                st.write(f"Response: {r.text[:500]}")
-            except Exception as e:
-                st.write(f"Error: {e}")
-                
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+
 def call_gemini(prompt: str, data_context: str) -> str:
-    """Call Gemini 2.0 Flash with the analysis prompt."""
-    if not GEMINI_API_KEY:
-        return "⚠️ Gemini API key not configured. Add GEMINI_API_KEY to your Streamlit secrets."
+    """Call Groq API with the analysis prompt."""
+    if not GROQ_API_KEY:
+        return "⚠️ API key not configured. Add GROQ_API_KEY to your Streamlit secrets."
+
+    import time
 
     system_prompt = """You are a senior equity research analyst with CFA credentials and 15+ years of experience at a top-tier investment bank. You produce institutional-quality research reports.
 
@@ -181,7 +165,7 @@ ANALYSIS FRAMEWORK — follow all of these rigorously:
      b) Sector/industry median
      c) Direct competitors
    - Identify whether it's trading at a premium or discount and WHY
-   - Estimate a fair value target price using relative valuation (peer P/E × estimated EPS)
+   - Estimate a fair value target price using relative valuation (peer P/E x estimated EPS)
 
 4. GROWTH ANALYSIS
    - Revenue growth trajectory (accelerating or decelerating?)
@@ -225,53 +209,46 @@ FORMATTING RULES:
 - Write for a sophisticated investor audience — no fluff
 - Every claim must reference the data provided"""
 
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [{"text": f"{prompt}\n\n--- RAW FINANCIAL DATA ---\n{data_context}"}],
-            }
-        ],
-        "systemInstruction": {
-            "parts": [{"text": system_prompt}]
-        },
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 8000,
-        },
-    }
-
-    import time
-
-    models = ["gemini-2.0-flash", "gemini-1.5-flash"]
+    models = ["llama-3.3-70b-versatile", "llama3-70b-8192"]
 
     for model in models:
-        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-
         for attempt in range(3):
             try:
-                resp = requests.post(api_url, json=payload, timeout=90)
+                resp = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": f"{prompt}\n\n--- RAW FINANCIAL DATA ---\n{data_context}"},
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 6000,
+                    },
+                    timeout=90,
+                )
 
                 if resp.status_code == 429:
-                    wait = (attempt + 1) * 10
-                    time.sleep(wait)
+                    time.sleep((attempt + 1) * 10)
                     continue
 
                 resp.raise_for_status()
                 result = resp.json()
-                return result["candidates"][0]["content"]["parts"][0]["text"]
+                return result["choices"][0]["message"]["content"]
 
             except requests.exceptions.Timeout:
                 if attempt < 2:
                     time.sleep(5)
                     continue
-                # Try next model
                 break
             except Exception as e:
                 error_msg = str(e)
-                # Never expose the API key in error messages
-                if GEMINI_API_KEY:
-                    error_msg = error_msg.replace(GEMINI_API_KEY, "***")
+                if GROQ_API_KEY:
+                    error_msg = error_msg.replace(GROQ_API_KEY, "***")
                 if attempt < 2:
                     time.sleep(3)
                     continue
@@ -831,7 +808,7 @@ if analyse_btn and ticker_input.strip():
         ⚠️ <strong>Disclaimer:</strong> This is an AI-generated analysis for educational and informational purposes only. 
         It does not constitute financial advice, a recommendation, or an offer to buy or sell securities. 
         Always conduct your own research and consult a licensed financial advisor before making investment decisions.
-        Data sourced from Yahoo Finance. AI analysis powered by Google Gemini.
+        Data sourced from Yahoo Finance. AI analysis powered by Groq.
     </div>
     """, unsafe_allow_html=True)
 
