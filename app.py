@@ -134,7 +134,25 @@ st.markdown("""
 
 # ─── Gemini API ───
 GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY", "")
-
+# ─── Debug: Test API Key ───
+with st.expander("🔧 Test API Connection"):
+    if st.button("Test Gemini API"):
+        if not GEMINI_API_KEY:
+            st.error("No API key found in secrets!")
+        else:
+            st.write(f"Key starts with: {GEMINI_API_KEY[:10]}...")
+            test_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+            test_payload = {
+                "contents": [{"role": "user", "parts": [{"text": "Say hello in one word."}]}],
+                "generationConfig": {"maxOutputTokens": 10},
+            }
+            try:
+                r = requests.post(test_url, json=test_payload, timeout=15)
+                st.write(f"Status code: {r.status_code}")
+                st.write(f"Response: {r.text[:500]}")
+            except Exception as e:
+                st.write(f"Error: {e}")
+                
 def call_gemini(prompt: str, data_context: str) -> str:
     """Call Gemini 2.0 Flash with the analysis prompt."""
     if not GEMINI_API_KEY:
